@@ -1,5 +1,5 @@
 # generate-sql-report
-Outputs SQL Query result into .CSV report
+Simple utility that Outputs SQL Query result into .CSV report
 
 # Installation
 You will need to download code locally. Easiest way to do that is using git clone.

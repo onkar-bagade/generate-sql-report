@@ -23,8 +23,9 @@ def db_connection(conn_params):
         password = conn_params['pwd']
         conn_string = """Driver={%s}; Server=%s; Database=%s;
                                             UID=%s; PWD=%s""" % (driver, host, database, uid, password)
+
         connection_url = URL.create("mssql+pyodbc", query={"odbc_connect": conn_string})
-        # conn = pyodbc.connect(conn_string)
+        log.debug(conn_string)
         engine = create_engine(connection_url)
         log.info("Connection successful.")
         return engine
@@ -87,42 +88,45 @@ def main():
     conf = get_config(options.ini_file)
     engine = db_connection(conf["Database"])
 
-    if options.sql_query is None:
-        # Reading sql file
-        log.info("Opening file %s to read query.", options.sql_file)
-        fh = open(options.sql_file, 'r')
-        sql_query = fh.read()
-        fh.close()
-    else:
-        sql_query = options.sql_query
+    try:
+        if options.sql_query is None:
+            # Reading sql file
+            log.info("Opening file %s to read query.", options.sql_file)
+            fh = open(options.sql_file, 'r')
+            sql_query = fh.read()
+            fh.close()
+        else:
+            sql_query = options.sql_query
 
-    log.info("Replacing DATE parameters if any with process date {0}".format(options.process_date))
-    sql_query = sql_query.replace("{DATE}", options.process_date)
+        log.info("Replacing DATE parameters if any with process date {0}".format(options.process_date))
+        sql_query = sql_query.replace("{DATE}", options.process_date)
 
-    # We will now replace labels- if they are supplied any by the user
-    # In SQL file you must add label's as {LABEL_1},{LABEL_2} ...
-    # the parameters passed will be the actual column names you want(add them as pipe delimited)- "Column1|Column2.."
+        # We will now replace labels- if they are supplied any by the user In SQL file you must add label's as {
+        # LABEL_1},{LABEL_2} ... the parameters passed will be the actual column names you want(add them as pipe
+        # delimited)- "Column1|Column2.."
 
-    if options.replace_label_values is not None:
-        log.info("Labels have been passed! ")
-        values = options.replace_label_values.split("|")
-        for index, str_val in enumerate(values):
-            replace_me = "{LABEL_" + str(index) + "}"
-            sql_query = sql_query.replace(replace_me, str_val)
+        if options.replace_label_values is not None:
+            log.info("Labels have been passed! ")
+            values = options.replace_label_values.split("|")
+            for index, str_val in enumerate(values):
+                replace_me = "{LABEL_" + str(index) + "}"
+                sql_query = sql_query.replace(replace_me, str_val)
 
-    log.debug("QUERY: %s", sql_query)
+        log.debug("QUERY: %s", sql_query)
 
-    log.info("...using pandas to do csv")
-    df = pandas.read_sql(sql=sql_query, con=engine)
-    if options.append_to_file:
-        mode = 'a'
-    else:
-        mode = 'w'
-    df.to_csv(options.output_file, index=False, sep=options.delimiter,
-              encoding='utf-8', header=options.include_header, quoting=csv.QUOTE_NONNUMERIC, mode=mode
-              )
+        log.info("...using pandas to do csv")
+        df = pandas.read_sql(sql=sql_query, con=engine)
+        if options.append_to_file:
+            mode = 'a'
+        else:
+            mode = 'w'
+        df.to_csv(options.output_file, index=False, sep=options.delimiter,
+                  encoding='utf-8', header=options.include_header, quoting=csv.QUOTE_NONNUMERIC, mode=mode
+                  )
 
-    log.info("Process completed...exiting")
+        log.info("Process completed...exiting")
+    except Exception as e:
+        log.error(e)
 
 
 if __name__ == "__main__":
